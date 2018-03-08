@@ -12,9 +12,9 @@
  * Hardware definitions
  */
 #define DEFAULT_SPI_DEVICE_NAME        "/dev/spidev0.0"
-#define DEFAULT_CS_PIN_NUMBER          25
-#define DEFAULT_RST_PIN_NUMBER         17
-#define DEFAULT_IRQ_PIN_NUMBER         4
+#define DEFAULT_CS_PIN_NUMBER          8
+#define DEFAULT_RST_PIN_NUMBER         4
+#define DEFAULT_IRQ_PIN_NUMBER         17
 
 /*
  * Register definitions
