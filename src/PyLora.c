@@ -2,6 +2,10 @@
 #include <Python.h>
 #include "lora.h"
 
+#if PY_MAJOR_VERSION >= 3
+#define IS_PY3K
+#endif
+
 int check(void)
 {
    if(lora_initialized()) return 1;
@@ -171,7 +175,7 @@ init(PyObject *self)
 {
    int res = lora_init();
    PyEval_InitThreads();                     // it seems to be necessary for using the global interpreter lock (GIL)
-   return PyInt_FromLong(res);
+   return PyLong_FromLong(res);
 }
 
 static PyObject *
@@ -179,7 +183,7 @@ packet_rssi(PyObject *self)
 {
    if(!check()) return NULL;
    int res = lora_packet_rssi();
-   return PyInt_FromLong(res);
+   return PyLong_FromLong(res);
 }
 
 static PyObject *
@@ -324,10 +328,31 @@ wait_for_packet(PyObject *self, PyObject *args)
    Py_RETURN_NONE;
 }
 
+/*
+* Module initialization and state
+*/
+struct module_state {
+    PyObject *error;
+};
+
+#if PY_MAJOR_VERSION >= 3
+#define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+#else
+#define GETSTATE(m) (&_state)
+static struct module_state _state;
+#endif
+
+static PyObject *
+error_out(PyObject *m) {
+    struct module_state *st = GETSTATE(m);
+    PyErr_SetString(st->error, "something bad happened");
+    return NULL;
+}
+
 /**
  * Method list for PyLora module
  */
-static PyMethodDef metodos[] = {
+static PyMethodDef myextension_methods[] = {
    { "reset", reset, METH_NOARGS, "Physical reset of the module" },
    { "explicit_header_mode", explicit_header_mode, METH_NOARGS, "Set explicit header mode for the next messages" },
    { "implicit_header_mode", implicit_header_mode, METH_VARARGS, "Set implicit header mode for the next messages, with size bytes" },
@@ -356,11 +381,63 @@ static PyMethodDef metodos[] = {
    { NULL, NULL, 0, NULL }
 };
 
+#if PY_MAJOR_VERSION >= 3
+
+static int myextension_traverse(PyObject *m, visitproc visit, void *arg) {
+    Py_VISIT(GETSTATE(m)->error);
+    return 0;
+}
+
+static int myextension_clear(PyObject *m) {
+    Py_CLEAR(GETSTATE(m)->error);
+    return 0;
+}
+
+
+static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "PyLora",
+        NULL,
+        sizeof(struct module_state),
+        myextension_methods,
+        NULL,
+        myextension_traverse,
+        myextension_clear,
+        NULL
+};
+
+#define INITERROR return NULL
+
+PyMODINIT_FUNC
+PyInit_PyLora(void)
+
+#else
+#define INITERROR return
+
 /**
  * Initialization function for the Python interpreter.
  */
 void
 initPyLora(void)
+#endif
 {
-   Py_InitModule("PyLora", metodos);
+#if PY_MAJOR_VERSION >= 3
+    PyObject *module = PyModule_Create(&moduledef);
+#else
+    PyObject *module = Py_InitModule("PyLora", myextension_methods);
+#endif
+
+    if (module == NULL)
+        INITERROR;
+    struct module_state *st = GETSTATE(module);
+
+    st->error = PyErr_NewException("myextension.Error", NULL, NULL);
+    if (st->error == NULL) {
+        Py_DECREF(module);
+        INITERROR;
+    }
+
+#if PY_MAJOR_VERSION >= 3
+    return module;
+#endif
 }

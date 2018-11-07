@@ -16,6 +16,16 @@ sudo python setup.py install
 ```
 The library is dependent on the availability of the **gpio** and **spidev** drivers into the Linux system.
 
+For python3, 
+```bash
+python3 setup.py build
+sudo python3 setup.py install
+```
+The build process require python3-dev. If necessary, run
+```bash
+sudo apt-get install python3-dev
+```
+
 ## Basic usage
 A simple **sender** program...
 ```python
